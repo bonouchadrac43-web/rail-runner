@@ -14,12 +14,19 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:
 /* Bloc pub : toujours EN DEHORS du jeu, jamais par-dessus (règle AdSense) */
 #ad{width:100%;max-width:360px;height:50px;margin:4px 0;text-align:center;font-size:11px;opacity:.5;line-height:50px}
 canvas{display:block;border-radius:10px}
+#foot{margin:8px 0;font-size:13px;text-align:center}
+#foot a{color:#ffb347;margin:0 8px;text-decoration:none}
 </style>
 </head>
 <body>
 <div id="wrap">
   <div id="ad">Espace publicitaire</div>
   <canvas id="c" width="360" height="640"></canvas>
+  <div id="foot">
+    <a href="a-propos.html">À propos</a>·
+    <a href="contact.html">Contact</a>·
+    <a href="confidentielle.html">Confidentialité</a>
+  </div>
 </div>
 <script>
 const c=document.getElementById('c'),g=c.getContext('2d');
@@ -28,7 +35,7 @@ let st='menu',score=0,coins=0,speed,obs,cns,lane,tl,jy,vy,t,spawnT,best=0,lastEn
 try{best=+localStorage.getItem('rr_best')||0}catch(e){}
 
 function fit(){
-  const s=Math.min(innerWidth/W,(innerHeight-70)/H);
+  const s=Math.min(innerWidth/W,(innerHeight-100)/H);
   c.style.width=W*s+'px';c.style.height=H*s+'px';
 }
 addEventListener('resize',fit);fit();
