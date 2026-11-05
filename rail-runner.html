@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rail Runner</title>
+<!-- ADSENSE : colle ici le script fourni par Google, une fois ton site approuvé :
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
+-->
+<style>
+:root{--bg:#14102b;--fg:#fff4dc}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,sans-serif;overflow:hidden;touch-action:none}
+#wrap{display:flex;flex-direction:column;align-items:center;height:100%;padding-top:env(safe-area-inset-top,0)}
+/* Bloc pub : toujours EN DEHORS du jeu, jamais par-dessus (règle AdSense) */
+#ad{width:100%;max-width:360px;height:50px;margin:4px 0;text-align:center;font-size:11px;opacity:.5;line-height:50px}
+canvas{display:block;border-radius:10px}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="ad">Espace publicitaire</div>
+  <canvas id="c" width="360" height="640"></canvas>
+</div>
+<script>
+const c=document.getElementById('c'),g=c.getContext('2d');
+const W=360,H=640,HOR=190,PY=500;
+let st='menu',score=0,coins=0,speed,obs,cns,lane,tl,jy,vy,t,spawnT,best=0,lastEnd=0;
+try{best=+localStorage.getItem('rr_best')||0}catch(e){}
+
+function fit(){
+  const s=Math.min(innerWidth/W,(innerHeight-70)/H);
+  c.style.width=W*s+'px';c.style.height=H*s+'px';
+}
+addEventListener('resize',fit);fit();
+
+function reset(){speed=.45;obs=[];cns=[];lane=0;tl=0;jy=0;vy=0;score=0;coins=0;spawnT=0;t=0}
+reset();
+
+function P(l,z){const s=.12+.88*z;return{x:W/2+l*105*s,y:HOR+(PY-HOR)*z,s}}
+
+function spawn(){
+  const l=Math.floor(Math.random()*3)-1;
+  if(Math.random()<.55){
+    obs.push({l,z:0,h:Math.random()<.5});
+    const o=[-1,0,1].filter(x=>x!==l)[Math.random()<.5?0:1];
+    if(Math.random()<.6)cns.push({l:o,z:0});
+  }else{
+    for(let i=0;i<3;i++)cns.push({l,z:-i*.06});
+  }
+}
+
+function die(){
+  st='over';lastEnd=performance.now();
+  const s=Math.floor(score);
+  if(s>best){best=s;try{localStorage.setItem('rr_best',best)}catch(e){}}
+}
+
+function update(dt){
+  t+=dt*speed;
+  speed=Math.min(1.1,speed+dt*.012);
+  lane+=(tl-lane)*Math.min(1,dt*14);
+  vy-=1800*dt;jy+=vy*dt;if(jy<=0){jy=0;vy=0}
+  spawnT-=dt*speed;if(spawnT<=0){spawnT=.34;spawn()}
+  score+=dt*speed*100;
+  for(const o of obs){
+    o.z+=dt*speed;
+    if(Math.abs(o.l-lane)<.55&&o.z>.93&&o.z<1.07&&(o.h||jy<30))die();
+  }
+  for(const k of cns){
+    k.z+=dt*speed;
+    if(!k.got&&Math.abs(k.l-lane)<.6&&k.z>.9&&k.z<1.1&&jy<70){k.got=1;coins++;score+=20}
+  }
+  obs=obs.filter(o=>o.z<1.3);
+  cns=cns.filter(k=>k.z<1.3&&!k.got);
+}
+
+function draw(){
+  const sky=g.createLinearGradient(0,0,0,HOR);
+  sky.addColorStop(0,'#14102b');sky.addColorStop(1,'#7a3a5c');
+  g.fillStyle=sky;g.fillRect(0,0,W,H);
+  g.fillStyle='#1d1838';g.fillRect(0,HOR,W,H-HOR);
+  // voie
+  const a=P(-1.5,0),b=P(1.5,0),cc=P(1.5,1.45),d=P(-1.5,1.45);
+  g.fillStyle='#2b2548';
+  g.beginPath();g.moveTo(a.x,a.y);g.lineTo(b.x,b.y);g.lineTo(cc.x,cc.y);g.lineTo(d.x,d.y);g.fill();
+  g.strokeStyle='#ffb347';g.lineWidth=2;
+  for(const l of[-.5,.5]){const p=P(l,0),q=P(l,1.45);g.beginPath();g.moveTo(p.x,p.y);g.lineTo(q.x,q.y);g.stroke()}
+  // traverses qui défilent
+  g.strokeStyle='#ffffff22';g.lineWidth=3;
+  for(let i=0;i<10;i++){
+    const z=((i/10+t*.8)%1)*1.45,l=P(-1.5,z),r=P(1.5,z);
+    g.beginPath();g.moveTo(l.x,l.y);g.lineTo(r.x,r.y);g.stroke();
+  }
+  // pièces
+  for(const k of cns){
+    if(k.z<0)continue;
+    const p=P(k.l,k.z);
+    g.fillStyle='#ffc933';g.beginPath();g.arc(p.x,p.y-30*p.s,12*p.s,0,7);g.fill();
+    g.strokeStyle='#b8860b';g.lineWidth=2*p.s;g.stroke();
+  }
+  // obstacles
+  for(const o of obs){
+    const p=P(o.l,o.z),w=70*p.s,h=(o.h?84:34)*p.s;
+    g.fillStyle='#00000055';g.fillRect(p.x-w/2,p.y-3*p.s,w,6*p.s);
+    g.fillStyle=o.h?'#d7385e':'#ff8a3d';g.fillRect(p.x-w/2,p.y-h,w,h);
+    g.fillStyle='#fff4dc';
+    for(let i=0;i<4;i++)g.fillRect(p.x-w/2+i*w/4,p.y-h,w/8,h*.22);
+  }
+  // joueur
+  const p=P(lane,1),y=PY-jy;
+  g.fillStyle='#00000066';g.beginPath();g.ellipse(p.x,PY+4,26-jy/10,8,0,0,7);g.fill();
+  g.fillStyle='#2ec4b6';g.beginPath();g.roundRect(p.x-22,y-64,44,64,12);g.fill();
+  g.fillStyle='#fff4dc';g.beginPath();g.arc(p.x,y-72,17,0,7);g.fill();
+  g.fillStyle='#ffb347';g.fillRect(p.x-19,y-84,38,9);
+  g.fillStyle='#14102b';g.fillRect(p.x-8,y-74,4,6);g.fillRect(p.x+4,y-74,4,6);
+  // interface
+  g.fillStyle='#fff4dc';g.font='700 22px system-ui';g.textAlign='left';
+  g.fillText(Math.floor(score),14,34);
+  g.textAlign='right';g.fillText(coins+' pièces',W-14,34);
+  g.textAlign='center';
+  if(st!=='run'){
+    g.fillStyle='#14102bcc';g.fillRect(30,230,W-60,190);
+    g.fillStyle='#fff4dc';g.font='700 28px system-ui';
+    g.fillText(st==='menu'?'Rail Runner':'Perdu !',W/2,280);
+    g.font='16px system-ui';
+    if(st==='over')g.fillText('Score '+Math.floor(score)+' · Record '+best,W/2,312);
+    else g.fillText('Record '+best,W/2,312);
+    g.fillText('Glisse ← → pour changer de voie',W/2,350);
+    g.fillText('Glisse ↑ pour sauter',W/2,374);
+    g.fillStyle='#ffb347';g.font='700 18px system-ui';
+    g.fillText(st==='menu'?'Touche pour jouer':'Touche pour rejouer',W/2,406);
+  }
+}
+
+let prev=performance.now();
+function loop(now){
+  const dt=Math.min(.05,(now-prev)/1000);prev=now;
+  if(st==='run')update(dt);
+  draw();requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+function go(){
+  if(st==='run')return;
+  if(st==='over'&&performance.now()-lastEnd<500)return;
+  reset();st='run';
+}
+function jump(){if(jy===0)vy=620}
+function move(d){tl=Math.max(-1,Math.min(1,tl+d))}
+
+let sx,sy;
+c.addEventListener('pointerdown',e=>{sx=e.clientX;sy=e.clientY});
+c.addEventListener('pointerup',e=>{
+  const dx=e.clientX-sx,dy=e.clientY-sy;
+  if(Math.abs(dx)<25&&Math.abs(dy)<25){go();return}
+  if(st!=='run')return;
+  if(Math.abs(dx)>Math.abs(dy))move(dx>0?1:-1);else if(dy<0)jump();
+});
+addEventListener('keydown',e=>{
+  if(e.key===' '||e.key==='Enter')go();
+  if(st!=='run')return;
+  if(e.key==='ArrowLeft')move(-1);
+  if(e.key==='ArrowRight')move(1);
+  if(e.key==='ArrowUp')jump();
+});
+</script>
+</body>
+</html>
